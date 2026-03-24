@@ -1,0 +1,34 @@
+# Data (too large for git)
+data/raw/
+data/processed/
+*.tif
+*.tiff
+
+# Results (regenerable)
+results/checkpoints/*.pt
+results/checkpoints/*.pth
+results/logs/
+
+# Python
+__pycache__/
+*.pyc
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Environment
+.env
+.venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,24 @@
+# Default experiment configuration
+# Extend this as components are built
+
+data:
+  raw_dir: data/raw
+  processed_dir: data/processed
+  splits_dir: data/splits
+
+  # Sen1Floods11
+  s1_bands: [VV, VH]
+  s2_bands: 13  # all multispectral bands
+  chip_size: 512
+  num_classes: 2  # water, non-water
+
+  # Copernicus DEM
+  dem_resolution: 30  # meters
+
+train:
+  batch_size: 8
+  num_workers: 4
+  epochs: 50
+  lr: 1.0e-4
+  weight_decay: 1.0e-4
+  seed: 42

@@ -1,0 +1,22 @@
+# Core
+torch>=2.0
+torchvision>=0.15
+numpy
+scipy
+
+# Geospatial
+rasterio
+geopandas
+pyproj
+
+# Data & visualization
+matplotlib
+seaborn
+tqdm
+
+# Experiment tracking
+pyyaml
+
+# Notebooks
+jupyter
+ipykernel
