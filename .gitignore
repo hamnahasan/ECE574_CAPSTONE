@@ -32,3 +32,9 @@ env/
 # OS
 .DS_Store
 Thumbs.db
+
+# Local files
+venv/
+*.exe
+skills.md
+CLAUDE.md

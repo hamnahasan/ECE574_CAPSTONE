@@ -35,6 +35,11 @@ gsutil -m cp -r gs://sen1floods11/v1.1/data/flood_events/HandLabeled/S1Hand "$RA
 gsutil -m cp -r gs://sen1floods11/v1.1/data/flood_events/HandLabeled/S2Hand "$RAW_DIR/"
 gsutil -m cp -r gs://sen1floods11/v1.1/data/flood_events/HandLabeled/LabelHand "$RAW_DIR/"
 
+# Weakly-labeled data (for semi-supervised learning)
+gsutil -m cp -r gs://sen1floods11/v1.1/data/flood_events/WeaklyLabeled/S1Weak "$RAW_DIR/"
+gsutil -m cp -r gs://sen1floods11/v1.1/data/flood_events/WeaklyLabeled/S2Weak "$RAW_DIR/"
+gsutil -m cp -r gs://sen1floods11/v1.1/data/flood_events/WeaklyLabeled/LabelWeak "$RAW_DIR/"
+
 # Split definitions
 gsutil -m cp -r gs://sen1floods11/v1.1/splits "$RAW_DIR/"
 
