@@ -31,6 +31,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from src.data.dataset import get_multimodal_dataloaders
 from src.models.fusion_unet import FusionUNet, count_parameters
 from src.utils.metrics import MetricAccumulator
+from src.utils.checkpoint import (
+    save_checkpoint, load_checkpoint, resolve_resume_path, save_history,
+)
 
 
 def parse_args():
@@ -51,6 +54,18 @@ def parse_args():
                         help="Use mixed precision training (default: on)")
     parser.add_argument("--no_amp", action="store_true",
                         help="Disable mixed precision")
+    # Resume path: auto-resume from checkpoint if it exists. Critical for
+    # SLURM jobs that may hit the 24hr wall-time limit and need to be requeued.
+    parser.add_argument("--resume", type=str, default=None,
+                        help="Checkpoint path to resume from (optional)")
+    parser.add_argument("--auto_resume", action="store_true",
+                        help="Auto-resume from latest checkpoint if it exists")
+    # Save every N epochs. Set lower on Isaac so we never lose more than
+    # N epochs of progress when a job is killed.
+    parser.add_argument("--save_every", type=int, default=5,
+                        help="Save rolling checkpoint every N epochs")
+    parser.add_argument("--run_name", type=str, default="fusion_unet",
+                        help="Name prefix for checkpoints and logs")
     return parser.parse_args()
 
 
@@ -73,9 +88,18 @@ def get_device(device_arg):
 
 
 def train_one_epoch(model, loader, criterion, optimizer, scheduler, device, scaler, use_amp):
+    """Train one epoch and return (avg_loss, train_metrics).
+
+    Train metrics are accumulated from training-set predictions. They are
+    slightly biased upward (no augmentation noise on metric, but they ARE
+    measured on augmented inputs) but provide the standard overfitting
+    diagnostic: a growing gap between train_iou and val_iou indicates
+    the model is memorizing training data instead of generalizing.
+    """
     model.train()
     total_loss = 0
     num_batches = 0
+    train_acc = MetricAccumulator()
 
     pbar = tqdm(loader, desc="  Train", leave=False)
     for s1, s2, labels in pbar:
@@ -106,12 +130,18 @@ def train_one_epoch(model, loader, criterion, optimizer, scheduler, device, scal
         if not (loss_val != loss_val):  # NaN check
             total_loss += loss_val
             num_batches += 1
+
+        # Free overfitting signal — predictions already computed
+        with torch.no_grad():
+            preds = torch.argmax(outputs, dim=1)
+            train_acc.update(preds, labels, ignore_index=255)
+
         pbar.set_postfix(
             loss=f"{loss.item():.4f}",
             lr=f"{scheduler.get_last_lr()[0]:.6f}",
         )
 
-    return total_loss / max(num_batches, 1)
+    return total_loss / max(num_batches, 1), train_acc.compute()
 
 
 @torch.no_grad()
@@ -194,15 +224,26 @@ def main():
 
     scaler = GradScaler(enabled=use_amp)
 
-    # Training loop
-    best_iou = 0.0
-    history = []
-    print(f"\nTraining for {args.epochs} epochs...")
+    # Resume if a checkpoint exists. Critical for Isaac where 24hr wall-time
+    # limits force long training runs to be split across multiple SLURM jobs.
+    start_epoch, best_iou, history = 1, 0.0, []
+    resume_path = resolve_resume_path(
+        args.resume, args.auto_resume, ckpt_dir, args.run_name,
+    )
+    if resume_path is not None:
+        start_epoch, best_iou, history = load_checkpoint(
+            resume_path, model, optimizer, scheduler, scaler, device,
+        )
 
-    for epoch in range(1, args.epochs + 1):
+    if start_epoch > args.epochs:
+        print(f"Already completed {args.epochs} epochs — skipping training.")
+    else:
+        print(f"\nTraining epochs {start_epoch}..{args.epochs}")
+
+    for epoch in range(start_epoch, args.epochs + 1):
         t0 = time.time()
 
-        train_loss = train_one_epoch(
+        train_loss, train_metrics = train_one_epoch(
             model, loaders["train"], criterion, optimizer, scheduler,
             device, scaler, use_amp,
         )
@@ -213,64 +254,65 @@ def main():
         elapsed = time.time() - t0
         iou = val_metrics["iou"]
         dice = val_metrics["dice"]
+        # Overfitting diagnostic: positive and growing means train >> val
+        iou_gap = train_metrics["iou"] - val_metrics["iou"]
 
         print(
             f"Epoch {epoch:3d}/{args.epochs} | "
-            f"Train Loss: {train_loss:.4f} | "
-            f"Val Loss: {val_loss:.4f} | "
-            f"Val IoU: {iou:.4f} | "
-            f"Val Dice: {dice:.4f} | "
-            f"{elapsed:.1f}s"
+            f"Train: {train_loss:.4f} (IoU {train_metrics['iou']:.3f}) | "
+            f"Val: {val_loss:.4f} (IoU {iou:.3f}, Dice {dice:.3f}) | "
+            f"Gap: {iou_gap:+.3f} | {elapsed:.1f}s"
         )
 
-        record = {
+        history.append({
             "epoch": epoch,
             "train_loss": train_loss,
             "val_loss": val_loss,
+            "train_iou":  train_metrics["iou"],
+            "train_dice": train_metrics["dice"],
             **{f"val_{k}": v for k, v in val_metrics.items()},
+            "iou_gap": iou_gap,
             "lr": scheduler.get_last_lr()[0],
             "time": elapsed,
-        }
-        history.append(record)
+        })
 
-        # Save best model
+        # Always save a rolling "latest" checkpoint so auto_resume can pick up
+        # where we left off regardless of whether this was a "best" epoch.
+        save_checkpoint(
+            ckpt_dir / f"{args.run_name}_latest.pt",
+            epoch, model, optimizer, scheduler, scaler, best_iou, history,
+            extra={"val_iou": iou, "val_dice": dice},
+        )
+
+        # Save history every epoch so notebooks have partial curves even
+        # if training dies mid-run.
+        save_history(history, log_dir / f"{args.run_name}_history.json")
+
+        # Best model (weights only) — separate file for evaluation.
         if iou > best_iou:
             best_iou = iou
-            torch.save({
-                "epoch": epoch,
-                "model_state_dict": model.state_dict(),
-                "optimizer_state_dict": optimizer.state_dict(),
-                "val_iou": iou,
-                "val_dice": dice,
-            }, ckpt_dir / "fusion_unet_best.pt")
-            print(f"  → Saved best model (IoU: {iou:.4f})")
+            save_checkpoint(
+                ckpt_dir / f"{args.run_name}_best.pt",
+                epoch, model, optimizer, scheduler, scaler, best_iou, history,
+                extra={"val_iou": iou, "val_dice": dice},
+            )
+            print(f"  -> Saved best model (IoU: {iou:.4f})")
 
-        # Checkpoint every 10 epochs
-        if epoch % 10 == 0:
-            torch.save({
-                "epoch": epoch,
-                "model_state_dict": model.state_dict(),
-                "optimizer_state_dict": optimizer.state_dict(),
-                "scheduler_state_dict": scheduler.state_dict(),
-                "val_iou": iou,
-            }, ckpt_dir / f"fusion_unet_epoch{epoch}.pt")
-
-    # Save final + history
-    torch.save({
-        "epoch": args.epochs,
-        "model_state_dict": model.state_dict(),
-    }, ckpt_dir / "fusion_unet_final.pt")
-
-    with open(log_dir / "fusion_unet_history.json", "w") as f:
-        json.dump(history, f, indent=2)
+        # Periodic named checkpoints for inspection.
+        if epoch % args.save_every == 0:
+            save_checkpoint(
+                ckpt_dir / f"{args.run_name}_epoch{epoch}.pt",
+                epoch, model, optimizer, scheduler, scaler, best_iou, history,
+                extra={"val_iou": iou},
+            )
 
     print(f"\nTraining complete. Best Val IoU: {best_iou:.4f}")
     print(f"Checkpoints: {ckpt_dir}")
-    print(f"Logs: {log_dir / 'fusion_unet_history.json'}")
 
     # Final evaluation on test set
     print("\nEvaluating on test set...")
-    ckpt = torch.load(ckpt_dir / "fusion_unet_best.pt", map_location=device, weights_only=True)
+    ckpt = torch.load(ckpt_dir / f"{args.run_name}_best.pt",
+                      map_location=device, weights_only=False)
     model.load_state_dict(ckpt["model_state_dict"])
     test_loss, test_metrics = validate(model, loaders["test"], criterion, device, use_amp)
     print(f"Test Loss: {test_loss:.4f}")
@@ -280,7 +322,7 @@ def main():
     print(f"Test Rec:  {test_metrics['recall']:.4f}")
     print(f"Test Acc:  {test_metrics['accuracy']:.4f}")
 
-    with open(log_dir / "fusion_unet_test_results.json", "w") as f:
+    with open(log_dir / f"{args.run_name}_test_results.json", "w") as f:
         json.dump(test_metrics, f, indent=2)
 
 

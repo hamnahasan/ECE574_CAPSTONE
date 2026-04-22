@@ -116,11 +116,10 @@ class CrossAttention(nn.Module):
         self.norm_b = nn.GroupNorm(min(16, channels), channels)
         self.scale = self.head_dim ** -0.5
 
-    @torch.amp.custom_fwd(device_type="cuda", cast_output=torch.float32)
     def _attend(self, q, k, v, out_proj):
         """Attention in float32 to prevent fp16 overflow in softmax."""
         B, _, H, W = q.shape
-        # Force float32 for numerical stability
+        # Force float32 for numerical stability regardless of AMP context
         q = q.float().view(B, self.num_heads, self.head_dim, H * W)
         k = k.float().view(B, self.num_heads, self.head_dim, H * W)
         v = v.float().view(B, self.num_heads, self.head_dim, H * W)
@@ -257,8 +256,8 @@ class FusionUNet(nn.Module):
 
         # Cross-attention fusion at each scale
         fused = []
-        for i, (s1_f, s2_f, attn, fuse) in enumerate(
-            zip(s1_feats, s2_feats, self.cross_attn, self.fuse_convs)
+        for s1_f, s2_f, attn, fuse in zip(
+            s1_feats, s2_feats, self.cross_attn, self.fuse_convs
         ):
             s1_att, s2_att = attn(s1_f, s2_f)
             merged = torch.cat([s1_att, s2_att], dim=1)
