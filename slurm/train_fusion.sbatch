@@ -33,7 +33,10 @@ mkdir -p logs results/checkpoints results/logs
 
 # Environment (see scripts/setup_isaac.sh)
 module load cuda/12.1.1-binary
-source activate floodseg
+
+# Initialize conda for batch mode (critical for SLURM scripts)
+eval "$(conda shell.bash hook)"
+conda activate floodseg
 
 echo "===================================================="
 echo "Job:       $SLURM_JOB_NAME"

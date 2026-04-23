@@ -30,7 +30,10 @@ PROJECT_DIR=/lustre/isaac24/scratch/$USER/ECE574_CAPSTONE
 
 cd $PROJECT_DIR
 module load cuda/12.1.1-binary
-source activate floodseg
+
+# Initialize conda for batch mode (critical for SLURM scripts)
+eval "$(conda shell.bash hook)"
+conda activate floodseg
 
 # Evaluate all three main models on Bolivia
 for MODEL in fusion trimodal; do

@@ -44,7 +44,10 @@ cd $PROJECT_DIR
 mkdir -p logs results/checkpoints results/logs
 
 module load cuda/12.1.1-binary
-source activate floodseg
+
+# Initialize conda for batch mode (critical for SLURM scripts)
+eval "$(conda shell.bash hook)"
+conda activate floodseg
 
 echo "Ablation variant: $MOD  (array index $SLURM_ARRAY_TASK_ID)"
 echo "Attempt: ${SLURM_RESTART_COUNT:-0}  Started: $(date)"
