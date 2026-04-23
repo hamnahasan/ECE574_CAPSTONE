@@ -30,7 +30,7 @@ PROJECT_DIR=/lustre/isaac24/scratch/$USER/ECE574_CAPSTONE
 cd $PROJECT_DIR
 mkdir -p logs results/checkpoints results/logs
 
-module load anaconda3/2024.02 cuda/12.1
+module load cuda/12.1.1-binary
 source activate floodseg
 
 echo "Job $SLURM_JOB_NAME [attempt ${SLURM_RESTART_COUNT:-0}] on $SLURMD_NODENAME at $(date)"

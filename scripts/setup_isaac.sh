@@ -14,8 +14,11 @@ set -euo pipefail
 ENV_NAME=floodseg
 
 echo "=== Loading Isaac modules ==="
-module load anaconda3/2024.02
-module load cuda/12.1
+# Anaconda is already on PATH from the user's default profile (base env active),
+# so we do NOT load an anaconda module. Just load CUDA.
+# Available CUDA versions (as of 2026): 11.8.0-binary, 12.1.1-binary, 12.2.0-binary,
+# 12.6.3-binary, 12.9.1-binary. We pin 12.1.1 to match the PyTorch wheels.
+module load cuda/12.1.1-binary
 
 # Check if env already exists
 if conda env list | grep -q "^${ENV_NAME} "; then
@@ -61,5 +64,5 @@ PY
 
 echo ""
 echo "=== Setup complete. Activate the env with: ==="
-echo "    module load anaconda3/2024.02 cuda/12.1"
+echo "    module load cuda/12.1.1-binary"
 echo "    source activate $ENV_NAME"

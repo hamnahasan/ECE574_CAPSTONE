@@ -32,7 +32,7 @@ cd $PROJECT_DIR
 mkdir -p logs results/checkpoints results/logs
 
 # Environment (see scripts/setup_isaac.sh)
-module load anaconda3/2024.02 cuda/12.1
+module load cuda/12.1.1-binary
 source activate floodseg
 
 echo "===================================================="

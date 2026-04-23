@@ -43,7 +43,7 @@ PROJECT_DIR=/lustre/isaac24/scratch/$USER/ECE574_CAPSTONE
 cd $PROJECT_DIR
 mkdir -p logs results/checkpoints results/logs
 
-module load anaconda3/2024.02 cuda/12.1
+module load cuda/12.1.1-binary
 source activate floodseg
 
 echo "Ablation variant: $MOD  (array index $SLURM_ARRAY_TASK_ID)"

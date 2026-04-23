@@ -27,7 +27,7 @@ SPLITS_DIR=/lustre/isaac24/scratch/$USER/sen1flood1/v1.1/splits/flood_handlabele
 PROJECT_DIR=/lustre/isaac24/scratch/$USER/ECE574_CAPSTONE
 
 cd $PROJECT_DIR
-module load anaconda3/2024.02 cuda/12.1
+module load cuda/12.1.1-binary
 source activate floodseg
 
 python scripts/mc_uncertainty.py \
