@@ -56,6 +56,8 @@ sbatch slurm/train_ablation_array.sbatch
 Submits 7 jobs at once: `s1`, `s2`, `dem`, `s1_s2`, `s1_dem`, `s2_dem`, `s1_s2_dem`.
 Each runs independently; Isaac schedules them on different GPUs as available.
 
+
+
 ## 5. Monitor
 
 ```bash
@@ -123,8 +125,7 @@ rsync -avz --progress \
 jupyter notebook notebooks/05_ablation_and_uncertainty.ipynb
 ```
 
-The notebook now plots **train IoU vs val IoU per epoch** so you can show
-explicitly that the model is not overfitting. This is the figure reviewers
+The notebook now plots **train IoU vs val IoU per epoch** so you can showexplicitly that the model is not overfitting. This is the figure reviewers
 expect to see for every learning curve.
 
 ---
