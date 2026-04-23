@@ -16,6 +16,10 @@ mkdir -p logs results/logs results/figures
 
 echo "Started MC uncertainty: $(date)"
 
+# Activate conda environment via direct path (critical for SLURM batch mode)
+eval "$(${FRONTIER_ENV}/bin/conda shell.bash hook)"
+conda activate "$FRONTIER_ENV"
+
 srun -N1 -n1 -c7 --gpus-per-task=1 --gpu-bind=closest \
     python -u scripts/mc_uncertainty.py \
         --checkpoint results/checkpoints/trimodal_unet_best.pt \

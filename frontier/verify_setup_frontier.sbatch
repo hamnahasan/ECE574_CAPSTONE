@@ -19,6 +19,10 @@ echo "JobID:   $SLURM_JOB_ID"
 echo "Node:    ${SLURMD_NODENAME:-unknown}"
 echo "Started: $(date)"
 
+# Activate conda environment via direct path (critical for SLURM batch mode)
+eval "$(${FRONTIER_ENV}/bin/conda shell.bash hook)"
+conda activate "$FRONTIER_ENV"
+
 srun -N1 -n1 -c7 --gpus-per-task=1 --gpu-bind=closest \
     python -u scripts/verify_setup.py \
         --data_root "$DATA_ROOT" \

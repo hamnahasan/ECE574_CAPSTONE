@@ -14,6 +14,10 @@ source frontier/frontier_env.sh
 cd "$PROJECT_DIR"
 mkdir -p logs results/logs
 
+# Activate conda environment via direct path (critical for SLURM batch mode)
+eval "$(${FRONTIER_ENV}/bin/conda shell.bash hook)"
+conda activate "$FRONTIER_ENV"
+
 python -u scripts/compile_results.py \
     --logs_dir results/logs \
     --output_csv results/logs/all_results.csv \

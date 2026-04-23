@@ -19,6 +19,10 @@ mkdir -p logs results/checkpoints results/logs
 echo "Job: $SLURM_JOB_NAME  Attempt: ${SLURM_RESTART_COUNT:-0}  Node: ${SLURMD_NODENAME:-unknown}"
 echo "Started: $(date)"
 
+# Activate conda environment via direct path (critical for SLURM batch mode)
+eval "$(${FRONTIER_ENV}/bin/conda shell.bash hook)"
+conda activate "$FRONTIER_ENV"
+
 srun -N1 -n1 -c7 --gpus-per-task=1 --gpu-bind=closest \
     python -u scripts/train_trimodal.py \
         --data_root "$DATA_ROOT" \

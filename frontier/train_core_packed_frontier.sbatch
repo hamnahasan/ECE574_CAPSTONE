@@ -19,6 +19,10 @@ mkdir -p logs results/checkpoints results/logs
 echo "Packed core training started: $(date)"
 echo "Node: ${SLURMD_NODENAME:-unknown}  Attempt: ${SLURM_RESTART_COUNT:-0}"
 
+# Activate conda environment via direct path (critical for SLURM batch mode)
+eval "$(${FRONTIER_ENV}/bin/conda shell.bash hook)"
+conda activate "$FRONTIER_ENV"
+
 run_one() {
     local name="$1"
     shift
