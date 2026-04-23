@@ -49,6 +49,8 @@ Only launch training after the verify job prints all `[PASS]` checks.
 
 ## 4. Training
 
+**Important:** Frontier has a 2-hour wall-time maximum. All training jobs are configured with `--requeue` enabled, so they will automatically checkpoint and resubmit when the 2-hour limit is reached. Training will resume from the latest checkpoint seamlessly across multiple 2-hour job submissions.
+
 Launch core models:
 
 ```bash
@@ -120,7 +122,7 @@ Example after placeholders are known:
 
 ```bash
 rsync -avz --progress \
-    her_username@frontier.olcf.ornl.gov:/lustre/orion/PROJECT_ID/scratch/her_username/ECE574_CAPSTONE/results/ \
+    her_username@frontier.olcf.ornl.gov:/lustre/orion/PROJECT_ID/scratch/your_username/ECE574_CAPSTONE/results/ \
     results/
 ```
 
