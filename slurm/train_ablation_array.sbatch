@@ -10,32 +10,45 @@
 #SBATCH --gres=gpu:1
 #SBATCH --time=24:00:00
 #SBATCH --requeue
-#SBATCH --array=0-6%6                  # 7 ablation variants; %6 caps concurrent at 6
-                                       # (Isaac max 6 jobs/user; 7th queues and
-                                       #  auto-starts when a slot opens)
+#SBATCH --array=0-5                    # 6 of 7 variants (Isaac QOS caps at 6
+                                       # SUBMITTED jobs total). The 7th variant
+                                       # (dem alone) is submitted separately
+                                       # via slurm/train_ablation_single.sbatch
+                                       # once a slot frees up. Variants are
+                                       # ordered below from most important to
+                                       # least important, so the deferred one
+                                       # is the weakest ablation.
 #SBATCH --output=logs/slurm-%x-%A_%a.out
 #SBATCH --error=logs/slurm-%x-%A_%a.err
 
 # --------------------------------------------------------------------------
-# Ablation study — 7 modality subsets run as a SLURM job array.
-# Each $SLURM_ARRAY_TASK_ID maps to one modality combination. The array
-# syntax lets Isaac schedule all 7 on different GPUs in parallel (subject
-# to queue limits). Each run auto-resumes independently.
+# Ablation study — 7 modality subsets. Isaac campus-gpu QOS caps at 6
+# submitted jobs total, so we submit 6 here and defer the 7th (dem alone)
+# to train_ablation_single.sbatch — run after any of these finishes.
+# All variants auto-resume independently across the 24hr wall-time.
 #
-# Modality combinations tested:
-#   0: s1        — SAR only (reproduce FCN baseline)
-#   1: s2        — optical only
-#   2: dem       — topography only (expected poor)
-#   3: s1_s2     — Phase 2 equivalent via early fusion
-#   4: s1_dem    — tests DEM value without optical
-#   5: s2_dem    — tests if SAR is necessary
-#   6: s1_s2_dem — Phase 3 equivalent via early fusion
+# Variants — ordered so the LEAST critical (dem alone) is at index 6
+# and therefore excluded from the array. Indices 0-5 run:
+#   0: s1_s2_dem — Phase 3 equivalent via early fusion (most critical)
+#   1: s1_s2     — Phase 2 equivalent via early fusion
+#   2: s1        — SAR only (architecture-controlled FCN comparison)
+#   3: s1_dem    — tests DEM value without optical
+#   4: s2_dem    — tests if SAR is necessary
+#   5: s2        — optical only
+# Deferred to train_ablation_single.sbatch:
+#   6: dem       — topography only (expected worst; sanity check)
 # --------------------------------------------------------------------------
 
 set -euo pipefail
 
-# Modality list matches the indices above.
-MODALITIES=(s1 s2 dem s1_s2 s1_dem s2_dem s1_s2_dem)
+# Silence Isaac's OpenMP warning about --cpus-per-task. We do not use OpenMP
+# explicitly, but numpy/scikit-image may use it internally. Setting this
+# explicitly acknowledges the warning and ensures BLAS doesn't oversubscribe.
+export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK:-1}
+
+# Modality list — reordered so dem (weakest, deferred) is last.
+# train_ablation_single.sbatch uses the same list and picks index 6.
+MODALITIES=(s1_s2_dem s1_s2 s1 s1_dem s2_dem s2 dem)
 MOD=${MODALITIES[$SLURM_ARRAY_TASK_ID]}
 
 DATA_ROOT=/lustre/isaac24/scratch/$USER/sen1flood1/v1.1/data/flood_events/HandLabeled

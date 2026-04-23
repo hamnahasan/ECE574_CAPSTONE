@@ -24,6 +24,9 @@
 
 set -euo pipefail
 
+# Silence OpenMP warning from Isaac for --cpus-per-task
+export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK:-1}
+
 DATA_ROOT=/lustre/isaac24/scratch/$USER/sen1flood1/v1.1/data/flood_events/HandLabeled
 SPLITS_DIR=/lustre/isaac24/scratch/$USER/sen1flood1/v1.1/splits/flood_handlabeled
 PROJECT_DIR=/lustre/isaac24/scratch/$USER/ECE574_CAPSTONE
