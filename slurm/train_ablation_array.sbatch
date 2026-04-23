@@ -10,7 +10,9 @@
 #SBATCH --gres=gpu:1
 #SBATCH --time=24:00:00
 #SBATCH --requeue
-#SBATCH --array=0-6                    # 7 ablation variants, run in parallel
+#SBATCH --array=0-6%6                  # 7 ablation variants; %6 caps concurrent at 6
+                                       # (Isaac max 6 jobs/user; 7th queues and
+                                       #  auto-starts when a slot opens)
 #SBATCH --output=logs/slurm-%x-%A_%a.out
 #SBATCH --error=logs/slurm-%x-%A_%a.err
 
