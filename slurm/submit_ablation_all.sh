@@ -9,27 +9,53 @@
 # Run this as a background process so it can poll overnight:
 #     nohup bash slurm/submit_ablation_all.sh > submit_ablation.log 2>&1 &
 #
-# Or run foreground if you'd rather watch it live:
+# Or run foreground to watch it live:
 #     bash slurm/submit_ablation_all.sh
+#
+# IMPORTANT: this script uses `squeue -r` to count array tasks individually
+# (each array task counts against the 6-submit QOS limit, even if squeue
+#  displays them collapsed as e.g. "5630526_[0-5]").
 # -----------------------------------------------------------------------------
 
-set -euo pipefail
+# Note: no `-e` — a failed sbatch (QOS limit) should trigger retry, not exit.
+set -uo pipefail
 
 cd "$(dirname "$0")/.."   # go to project root
 
-echo "[$(date)] Submitting ablation array (6 of 7 variants)..."
-ARRAY_JOB=$(sbatch --parsable slurm/train_ablation_array.sbatch)
-echo "[$(date)] Array jobid: $ARRAY_JOB"
+log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
 
-echo "[$(date)] Polling queue for a free slot (max 6 submitted; need <=5 to add one)..."
+# Guard: don't double-submit the array if one is already queued.
+EXISTING=$(squeue -u "$USER" -h -r -n ablation -o "%A" 2>/dev/null | wc -l)
+if [ "$EXISTING" -gt 0 ]; then
+    log "Found $EXISTING existing 'ablation' jobs in queue — skipping array submission"
+    log "Will still poll and submit the 7th variant when a slot frees"
+else
+    log "Submitting 6-task ablation array..."
+    ARRAY_JOB=$(sbatch --parsable slurm/train_ablation_array.sbatch)
+    rc=$?
+    if [ $rc -ne 0 ]; then
+        log "sbatch for array failed with exit $rc — aborting"
+        exit $rc
+    fi
+    log "Array submitted: job id $ARRAY_JOB"
+fi
+
+log "Polling for a free slot (need ≤5 submitted to add the 7th variant)..."
+ATTEMPT=0
 while true; do
-    SUBMITTED=$(squeue -u "$USER" -h -o "%A" | wc -l)
-    echo "[$(date)] Currently submitted: $SUBMITTED"
+    ATTEMPT=$((ATTEMPT + 1))
+    # -r expands array tasks into individual rows; each counts against MaxSubmit=6
+    SUBMITTED=$(squeue -u "$USER" -h -r -o "%A" 2>/dev/null | wc -l)
+    log "Poll #$ATTEMPT — currently submitted: $SUBMITTED / 6"
+
     if [ "$SUBMITTED" -lt 6 ]; then
-        echo "[$(date)] Slot available — submitting the 7th variant (dem alone)"
-        sbatch slurm/train_ablation_single.sbatch
-        echo "[$(date)] Done. All 7 ablation variants now in the pipeline."
-        exit 0
+        log "Slot available — submitting 7th variant (dem alone)"
+        if sbatch slurm/train_ablation_single.sbatch; then
+            log "Success — all 7 ablation variants now in the pipeline."
+            exit 0
+        else
+            log "sbatch failed (QOS limit may have raced). Will retry in 5min."
+        fi
     fi
     sleep 300    # 5 minutes
 done
