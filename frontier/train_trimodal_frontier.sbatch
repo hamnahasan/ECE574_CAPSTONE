@@ -3,7 +3,7 @@
 #SBATCH -J trimodal_s1s2dem
 #SBATCH -p batch
 #SBATCH -N 1
-#SBATCH -t 24:00:00
+#SBATCH -t 02:00:00
 #SBATCH --requeue
 #SBATCH --signal=B:USR1@300
 #SBATCH -o logs/frontier-%x-%j.out

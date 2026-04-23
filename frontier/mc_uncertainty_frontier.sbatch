@@ -3,7 +3,7 @@
 #SBATCH -J mc_uncertainty
 #SBATCH -p batch
 #SBATCH -N 1
-#SBATCH -t 03:00:00
+#SBATCH -t 02:00:00
 #SBATCH -o logs/frontier-%x-%j.out
 #SBATCH -e logs/frontier-%x-%j.err
 

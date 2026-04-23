@@ -3,7 +3,7 @@
 #SBATCH -J ablation
 #SBATCH -p batch
 #SBATCH -N 1
-#SBATCH -t 24:00:00
+#SBATCH -t 02:00:00
 #SBATCH --requeue
 #SBATCH --array=0-6
 #SBATCH -o logs/frontier-%x-%A_%a.out
