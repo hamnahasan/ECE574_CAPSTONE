@@ -284,13 +284,16 @@ def evaluate_uncertainty(model, dataset, device, n_samples=20,
         valid  = lbl_np != 255
         all_probs.append(mean_prob[valid])
         all_labels.append(lbl_np[valid])
-        chip_uncertainties.append(float(uncertainty[valid].mean()))
+        # Guard: chips with zero valid pixels (all nodata) would yield NaN from
+        # an empty-array .mean() and poison the final aggregate.
+        if valid.sum() > 0:
+            chip_uncertainties.append(float(uncertainty[valid].mean()))
 
     all_probs  = np.concatenate(all_probs)
     all_labels = np.concatenate(all_labels)
 
     ece, bins = compute_ece(all_probs, all_labels, n_bins=n_bins)
-    mean_unc  = float(np.mean(chip_uncertainties))
+    mean_unc  = float(np.nanmean(chip_uncertainties)) if chip_uncertainties else 0.0
 
     print(f"ECE:              {ece:.4f}  (lower is better)")
     print(f"Mean uncertainty: {mean_unc:.4f} (higher = less confident overall)")

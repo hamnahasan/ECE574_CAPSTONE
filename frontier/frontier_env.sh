@@ -7,7 +7,7 @@
 
 set -euo pipefail
 
-# Example scratch pattern on OLCF systems. Change if her project uses a
+# Example scratch pattern on OLCF systems.  Change these if your Frontier account uses a
 # different path or if the repo/data live somewhere else.
 export PROJECT_DIR="/lustre/orion/PROJECT_ID_HERE/scratch/${USER}/ECE574_CAPSTONE"
 export DATA_ROOT="/lustre/orion/PROJECT_ID_HERE/scratch/${USER}/sen1flood1/v1.1/data/flood_events/HandLabeled"

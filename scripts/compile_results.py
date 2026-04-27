@@ -28,12 +28,23 @@ import pandas as pd
 # Map filename patterns -> (model_label, split) for readable output.
 # Any file matching *_results.json, *_test_results.json, or *_bolivia_results.json
 # is pulled in automatically.
+# Bolivia eval used short aliases (fcn/fusion/trimodal) while training
+# scripts use full names (fcn_baseline/fusion_unet/trimodal_unet). Normalize
+# so test and Bolivia rows merge correctly in the notebook.
+MODEL_NAME_ALIASES = {
+    "fcn":      "fcn_baseline",
+    "fusion":   "fusion_unet",
+    "trimodal": "trimodal_unet",
+}
+
+
 def parse_filename(stem):
     """Infer (model, split) from the result JSON filename.
 
     Examples:
         fcn_baseline_test_results  -> ("fcn_baseline", "test")
         fusion_unet_bolivia_results -> ("fusion_unet", "bolivia")
+        fusion_bolivia_results -> ("fusion_unet", "bolivia")  # alias normalized
         ablation_s1_s2_dem_test_results -> ("ablation_s1_s2_dem", "test")
         trimodal_unet_test_results -> ("trimodal_unet", "test")
         otsu_test_results -> ("otsu", "test")
@@ -47,6 +58,7 @@ def parse_filename(stem):
         suffix = "_" + split
         if stem.endswith(suffix):
             model = stem[:-len(suffix)]
+            model = MODEL_NAME_ALIASES.get(model, model)
             return model, split
 
     return stem, "unknown"
