@@ -391,7 +391,15 @@ def main():
     # Figure 1: ablation_s1_s2 best/worst on test
     # ----------------------------------------------------------------------
     print("\n=== Figure 1: ablation_s1_s2 best/worst on test ===")
-    s1s2_ckpt = Path(args.ckpt_dir) / "ablation_s1_s2_best.pt"
+    # Ablation training saves checkpoints in a per-run subdirectory:
+    #   results/checkpoints/ablation_s1_s2/ablation_s1_s2_best.pt
+    # (Tri-modal/fusion training saves directly under results/checkpoints/.)
+    s1s2_ckpt = Path(args.ckpt_dir) / "ablation_s1_s2" / "ablation_s1_s2_best.pt"
+    if not s1s2_ckpt.exists():
+        # Fall back to flat layout in case anyone moved it
+        flat = Path(args.ckpt_dir) / "ablation_s1_s2_best.pt"
+        if flat.exists():
+            s1s2_ckpt = flat
     if not s1s2_ckpt.exists():
         print(f"  [skip] checkpoint not found: {s1s2_ckpt}")
     else:
