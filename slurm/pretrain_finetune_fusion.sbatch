@@ -51,6 +51,12 @@ WEAK_SPLITS=/lustre/isaac24/scratch/$USER/sen1flood1/v1.1/splits/flood_weakly_la
 WEAK_TRAIN_CSV=flood_train_data.csv
 WEAK_VAL_CSV=flood_valid_data.csv
 
+# Sen1Floods11 v1.1 ships the weakly-labeled labels under TWO directories:
+#   S1OtsuLabelWeak    -- Otsu threshold on S1 VH (cloud-immune; default)
+#   S2IndexLabelWeak   -- spectral index threshold on S2 (cloud-sensitive)
+# Default is S1OtsuLabelWeak. Override here to swap.
+WEAK_LABEL_SUBDIR=S1OtsuLabelWeak
+
 PROJECT_DIR=/lustre/isaac24/scratch/$USER/ECE574_CAPSTONE
 RUN_NAME=fusion_weakpretrain
 
@@ -74,7 +80,7 @@ for path in \
     "$HAND_SPLITS/flood_test_data.csv" \
     "$WEAK_DATA_ROOT/S1Weak" \
     "$WEAK_DATA_ROOT/S2Weak" \
-    "$WEAK_DATA_ROOT/LabelWeak" \
+    "$WEAK_DATA_ROOT/$WEAK_LABEL_SUBDIR" \
     "$WEAK_SPLITS/$WEAK_TRAIN_CSV" \
     "$WEAK_SPLITS/$WEAK_VAL_CSV"
 do
@@ -92,14 +98,15 @@ if [[ $fail -ne 0 ]]; then
 fi
 
 python scripts/pretrain_finetune_fusion.py \
-    --hand_data_root   "$HAND_DATA_ROOT" \
-    --hand_splits_dir  "$HAND_SPLITS" \
-    --weak_data_root   "$WEAK_DATA_ROOT" \
-    --weak_splits_dir  "$WEAK_SPLITS" \
-    --weak_train_csv   "$WEAK_TRAIN_CSV" \
-    --weak_val_csv     "$WEAK_VAL_CSV" \
-    --output_dir       results \
-    --run_name         "$RUN_NAME" \
+    --hand_data_root    "$HAND_DATA_ROOT" \
+    --hand_splits_dir   "$HAND_SPLITS" \
+    --weak_data_root    "$WEAK_DATA_ROOT" \
+    --weak_splits_dir   "$WEAK_SPLITS" \
+    --weak_train_csv    "$WEAK_TRAIN_CSV" \
+    --weak_val_csv      "$WEAK_VAL_CSV" \
+    --weak_label_subdir "$WEAK_LABEL_SUBDIR" \
+    --output_dir        results \
+    --run_name          "$RUN_NAME" \
     --pretrain_epochs  30 \
     --pretrain_lr      2e-4 \
     --pretrain_batch_size 8 \
