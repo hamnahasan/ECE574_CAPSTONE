@@ -99,20 +99,24 @@ def compute_slope(elevation, transform):
     return slope_deg.astype(np.float32)
 
 
-def process_chip(s1_path, output_dir, tile_cache):
+def process_chip(s1_path, output_dir, tile_cache,
+                  s1_token="S1Hand", dem_token="DEMHand", dem_subdir="DEMHand"):
     """Crop, resample and save DEM+slope for one chip.
 
     Args:
-        s1_path: Path to S1Hand .tif (used to get bounds and grid).
-        output_dir: Directory to save DEMHand chips.
+        s1_path: Path to S1 .tif (used to get bounds and grid).
+        output_dir: Directory to save DEM chips (subdir below).
         tile_cache: Directory with downloaded DEM tiles.
+        s1_token, dem_token: Filename tokens to swap (e.g. "S1Hand"→"DEMHand"
+            for hand-labeled, "S1Weak"→"DEMWeak" for weakly-labeled).
+        dem_subdir: Subdirectory under output_dir to write the DEM chips.
 
     Returns:
         Path to output chip, or None on failure.
     """
     s1_path = Path(s1_path)
-    chip_name = s1_path.stem.replace("S1Hand", "DEMHand")
-    out_path = Path(output_dir) / "DEMHand" / f"{chip_name}.tif"
+    chip_name = s1_path.stem.replace(s1_token, dem_token)
+    out_path = Path(output_dir) / dem_subdir / f"{chip_name}.tif"
 
     if out_path.exists():
         return out_path  # already done
@@ -237,17 +241,25 @@ def process_chip(s1_path, output_dir, tile_cache):
 
 def main():
     parser = argparse.ArgumentParser(description="Download and preprocess Copernicus DEM GLO-30")
-    parser.add_argument("--s1_dir", required=True, help="Path to S1Hand directory")
-    parser.add_argument("--splits_dir", required=True, help="Path to splits/flood_handlabeled")
-    parser.add_argument("--output_dir", required=True, help="HandLabeled root dir (DEMHand/ created here)")
+    parser.add_argument("--s1_dir", required=True, help="Path to S1 chip directory (S1Hand or S1Weak)")
+    parser.add_argument("--splits_dir", required=True, help="Path to splits dir with flood_*.csv")
+    parser.add_argument("--output_dir", required=True, help="Root dir under which dem_subdir/ is created")
     parser.add_argument("--tile_cache", required=True, help="Directory to cache raw DEM tiles")
+    # Tokens / subdir let the same script handle hand-labeled and weakly-labeled
+    # chips. Defaults preserve the original hand-labeled behavior.
+    parser.add_argument("--s1_token",   default="S1Hand",
+                        help="S1 filename token; 'S1Hand' or 'S1Weak'")
+    parser.add_argument("--dem_token",  default="DEMHand",
+                        help="DEM filename token; 'DEMHand' or 'DEMWeak'")
+    parser.add_argument("--dem_subdir", default="DEMHand",
+                        help="Subdir under --output_dir for produced DEM chips")
     args = parser.parse_args()
 
     s1_dir = Path(args.s1_dir)
     splits_dir = Path(args.splits_dir)
     tile_cache = Path(args.tile_cache)
     tile_cache.mkdir(parents=True, exist_ok=True)
-    (Path(args.output_dir) / "DEMHand").mkdir(parents=True, exist_ok=True)
+    (Path(args.output_dir) / args.dem_subdir).mkdir(parents=True, exist_ok=True)
 
     # Collect all unique S1 files
     all_s1_files = set()
@@ -297,12 +309,15 @@ def main():
         s1_path = s1_dir / s1_file
         if not s1_path.exists():
             continue
-        result = process_chip(s1_path, args.output_dir, tile_cache)
+        result = process_chip(s1_path, args.output_dir, tile_cache,
+                               s1_token=args.s1_token,
+                               dem_token=args.dem_token,
+                               dem_subdir=args.dem_subdir)
         if result:
             success += 1
 
     print(f"\nDone. DEM chips saved: {success}/{len(all_s1_files)}")
-    print(f"Output: {Path(args.output_dir) / 'DEMHand'}")
+    print(f"Output: {Path(args.output_dir) / args.dem_subdir}")
     print(f"Format: 2-band float32 GeoTIFF (band1=elevation_m, band2=slope_deg)")
 
 

@@ -150,6 +150,8 @@ class Sen1Floods11MultiModal(Dataset):
         crop_size=256,
         augment=False,
         normalize=True,
+        s1_token="S1Hand",
+        s2_token="S2Hand",
     ):
         self.s1_dir = Path(s1_dir)
         self.s2_dir = Path(s2_dir)
@@ -157,6 +159,11 @@ class Sen1Floods11MultiModal(Dataset):
         self.crop_size = crop_size
         self.augment = augment
         self.normalize = normalize
+        # Tokens used to derive the S2 filename from the S1 filename. Default
+        # values match the HandLabeled split. Pass s1_token="S1Weak",
+        # s2_token="S2Weak" for the WeaklyLabeled split.
+        self.s1_token = s1_token
+        self.s2_token = s2_token
 
         df = pd.read_csv(split_csv, header=None, names=["s1_file", "label_file"])
         self.samples = list(zip(df["s1_file"], df["label_file"]))
@@ -191,8 +198,10 @@ class Sen1Floods11MultiModal(Dataset):
     def __getitem__(self, idx):
         s1_file, label_file = self.samples[idx]
 
-        # Derive S2 filename: replace S1Hand with S2Hand
-        s2_file = s1_file.replace("S1Hand", "S2Hand")
+        # Derive S2 filename by swapping the S1 token for the S2 token.
+        # Defaults are "S1Hand" -> "S2Hand"; weak-data callers pass
+        # s1_token="S1Weak", s2_token="S2Weak".
+        s2_file = s1_file.replace(self.s1_token, self.s2_token)
 
         s1 = self._read_s1(self.s1_dir / s1_file)
         s2 = self._read_s2(self.s2_dir / s2_file)
@@ -303,31 +312,48 @@ def get_multimodal_dataloaders(
     batch_size=4,
     num_workers=4,
     crop_size=256,
+    s1_subdir="S1Hand",
+    s2_subdir="S2Hand",
+    label_subdir="LabelHand",
+    s1_token="S1Hand",
+    s2_token="S2Hand",
+    train_csv="flood_train_data.csv",
+    val_csv="flood_valid_data.csv",
+    test_csv="flood_test_data.csv",
 ):
     """Create train/val/test dataloaders for S1+S2 multi-modal models.
 
     Returns (s1, s2, label) per sample instead of (s1, label).
+
+    Defaults match the HandLabeled split. For WeaklyLabeled pretraining pass
+    s1_subdir="S1Weak", s2_subdir="S2Weak", label_subdir="LabelWeak",
+    s1_token="S1Weak", s2_token="S2Weak", and the corresponding split CSVs.
+    Use get_weak_pretrain_loader() below if you only need the weak training
+    set without a val/test split.
     """
     data_root = Path(data_root)
     splits_dir = Path(splits_dir)
-    s1_dir = data_root / "S1Hand"
-    s2_dir = data_root / "S2Hand"
-    label_dir = data_root / "LabelHand"
+    s1_dir = data_root / s1_subdir
+    s2_dir = data_root / s2_subdir
+    label_dir = data_root / label_subdir
 
     train_ds = Sen1Floods11MultiModal(
-        split_csv=splits_dir / "flood_train_data.csv",
+        split_csv=splits_dir / train_csv,
         s1_dir=s1_dir, s2_dir=s2_dir, label_dir=label_dir,
         crop_size=crop_size, augment=True, normalize=True,
+        s1_token=s1_token, s2_token=s2_token,
     )
     val_ds = Sen1Floods11MultiModal(
-        split_csv=splits_dir / "flood_valid_data.csv",
+        split_csv=splits_dir / val_csv,
         s1_dir=s1_dir, s2_dir=s2_dir, label_dir=label_dir,
         crop_size=None, augment=False, normalize=True,
+        s1_token=s1_token, s2_token=s2_token,
     )
     test_ds = Sen1Floods11MultiModal(
-        split_csv=splits_dir / "flood_test_data.csv",
+        split_csv=splits_dir / test_csv,
         s1_dir=s1_dir, s2_dir=s2_dir, label_dir=label_dir,
         crop_size=None, augment=False, normalize=True,
+        s1_token=s1_token, s2_token=s2_token,
     )
 
     loaders = {
