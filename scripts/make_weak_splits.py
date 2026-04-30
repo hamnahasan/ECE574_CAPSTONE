@@ -54,10 +54,16 @@ def main():
     if not s1_dir.is_dir():
         raise SystemExit(f"Not a directory: {s1_dir}")
 
-    files = sorted(p.name for p in s1_dir.glob("*.tif"))
+    # Filter out macOS metadata files (._<name>.tif) that ship alongside the
+    # real chips on Lustre. Path.glob() doesn't honor the shell hidden-file
+    # convention, so we filter explicitly.
+    files = sorted(
+        p.name for p in s1_dir.glob("*.tif")
+        if not p.name.startswith("._")
+    )
     if not files:
         raise SystemExit(f"No .tif files found in {s1_dir}")
-    print(f"Found {len(files)} S1Weak chips")
+    print(f"Found {len(files)} S1Weak chips (after filtering ._ junk)")
 
     # Sanity check — the label folder should exist alongside S1Weak
     label_dir = s1_dir.parent / args.label_token
