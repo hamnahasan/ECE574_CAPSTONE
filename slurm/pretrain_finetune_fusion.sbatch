@@ -109,7 +109,7 @@ python scripts/pretrain_finetune_fusion.py \
     --run_name          "$RUN_NAME" \
     --pretrain_epochs  30 \
     --pretrain_lr      2e-4 \
-    --pretrain_batch_size 8 \
+    --pretrain_batch_size 4 \
     --finetune_epochs  60 \
     --finetune_lr      4e-5 \
     --finetune_batch_size 4 \
