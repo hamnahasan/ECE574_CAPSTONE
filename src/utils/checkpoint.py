@@ -59,15 +59,48 @@ def _get_rng_state():
 
 
 def _set_rng_state(state):
-    """Restore RNG states. Silently skip any missing keys (old checkpoints)."""
+    """Restore RNG states. Non-fatal on failure — a corrupted RNG entry must
+    not abort an otherwise-resumable run. Each component is independently
+    guarded; a failure on torch_random does not skip torch_cuda_random.
+
+    Tensor RNG state requires a CPU ByteTensor; torch.load with map_location
+    set to a CUDA device or a different PyTorch version can produce a tensor
+    on the wrong device or with the wrong dtype, hence the explicit coercion.
+    """
     if "python_random" in state:
-        random.setstate(state["python_random"])
+        try:
+            random.setstate(state["python_random"])
+        except Exception as e:
+            print(f"[warn] python RNG restore failed: {e}; continuing")
+
     if "numpy_random" in state:
-        np.random.set_state(state["numpy_random"])
+        try:
+            np.random.set_state(state["numpy_random"])
+        except Exception as e:
+            print(f"[warn] numpy RNG restore failed: {e}; continuing")
+
     if "torch_random" in state:
-        torch.set_rng_state(state["torch_random"])
+        try:
+            rng = state["torch_random"]
+            if hasattr(rng, "cpu"):
+                rng = rng.cpu()
+            if hasattr(rng, "dtype") and rng.dtype != torch.uint8:
+                rng = rng.byte()
+            torch.set_rng_state(rng)
+        except Exception as e:
+            print(f"[warn] torch RNG restore failed: {e}; continuing")
+
     if "torch_cuda_random" in state and torch.cuda.is_available():
-        torch.cuda.set_rng_state_all(state["torch_cuda_random"])
+        try:
+            cuda_state = state["torch_cuda_random"]
+            if isinstance(cuda_state, (list, tuple)):
+                cuda_state = [
+                    (s.cpu().byte() if hasattr(s, "cpu") else s)
+                    for s in cuda_state
+                ]
+            torch.cuda.set_rng_state_all(cuda_state)
+        except Exception as e:
+            print(f"[warn] CUDA RNG restore failed: {e}; continuing")
 
 
 def save_checkpoint(path, epoch, model, optimizer, scheduler, scaler,
