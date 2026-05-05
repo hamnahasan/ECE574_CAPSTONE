@@ -7,7 +7,7 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=32G
-#SBATCH --gres=gpu:1
+#SBATCH --gres=gpu:v100s:1
 #SBATCH --time=24:00:00
 #SBATCH --requeue                      # allow SLURM to auto-requeue on timeout
 #SBATCH --signal=B:USR1@300            # warn us 5min before wall-time
