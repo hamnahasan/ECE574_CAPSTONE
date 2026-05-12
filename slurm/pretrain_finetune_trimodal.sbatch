@@ -55,7 +55,12 @@ WEAK_VAL_CSV=flood_valid_data.csv
 WEAK_LABEL_SUBDIR=S1OtsuLabelWeak
 
 PROJECT_DIR=/lustre/isaac24/scratch/$USER/ECE574_CAPSTONE
-RUN_NAME=trimodal_weakpretrain
+
+# Per-seed overrides for n=3 parity with other TriModal runs.
+# Default seed=42 / run_name=trimodal_weakpretrain; override at submit:
+#   SEED=123 RUN_NAME=trimodal_weakpretrain_seed123 sbatch ...
+SEED=${SEED:-42}
+RUN_NAME=${RUN_NAME:-trimodal_weakpretrain}
 
 cd "$PROJECT_DIR"
 mkdir -p logs results/checkpoints results/logs
@@ -114,7 +119,7 @@ python scripts/pretrain_finetune_trimodal.py \
     --crop_size        256 \
     --num_workers      8 \
     --save_every       5 \
-    --seed             42 \
+    --seed             "$SEED" \
     --auto_resume
 
 echo "Finished at $(date)"
