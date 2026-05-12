@@ -84,7 +84,29 @@ def build_model(model_kind, modalities=None):
 # --------------------------------------------------------------------------
 
 def get_loader(split, data_root, splits_dir):
-    """Return the trimodal loader for the requested split (always batch=1)."""
+    """Return the trimodal loader for the requested split (always batch=1).
+
+    Bolivia is a held-out cross-region event in Sen1Floods11 and is NOT
+    produced by `get_trimodal_dataloaders` (which only yields train/val/test).
+    For `split=bolivia` we construct the dataset directly from
+    flood_bolivia_data.csv.
+    """
+    if split == "bolivia":
+        from src.data.dataset import Sen1Floods11TriModal
+        from torch.utils.data import DataLoader
+
+        data_root = Path(data_root); splits_dir = Path(splits_dir)
+        ds = Sen1Floods11TriModal(
+            split_csv=splits_dir / "flood_bolivia_data.csv",
+            s1_dir=data_root / "S1Hand",
+            s2_dir=data_root / "S2Hand",
+            dem_dir=data_root / "DEMHand",
+            label_dir=data_root / "LabelHand",
+            crop_size=None, augment=False,
+        )
+        loader = DataLoader(ds, batch_size=1, num_workers=4, shuffle=False)
+        return loader, ds
+
     from src.data.dataset import get_trimodal_dataloaders
     loaders = get_trimodal_dataloaders(
         data_root=data_root, splits_dir=splits_dir,
@@ -153,7 +175,7 @@ def parse_args():
     p.add_argument("--data_root",   required=True)
     p.add_argument("--splits_dir",  required=True)
     p.add_argument("--split",       default="test",
-                   choices=["train", "val", "test"])
+                   choices=["train", "val", "test", "bolivia"])
     p.add_argument("--output",      default=None,
                    help="Output JSON; default derived from checkpoint name")
     p.add_argument("--device",      default="auto")
