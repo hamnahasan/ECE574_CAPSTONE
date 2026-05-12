@@ -374,13 +374,22 @@ def get_multimodal_dataloaders(
 
 
 class Sen1Floods11TriModal(Dataset):
-    """S1 + S2 + DEM tri-modal dataset. Returns (s1, s2, dem, label)."""
+    """S1 + S2 + DEM tri-modal dataset. Returns (s1, s2, dem, label).
+
+    The s1_file column in the split CSV is a template — the dataset derives
+    the corresponding S2 and DEM filenames by substituting the token
+    `s1_token` for `s2_token`/`dem_token` respectively. Defaults match the
+    HandLabeled layout (S1Hand / S2Hand / DEMHand). For WeaklyLabeled
+    pretraining pass s1_token="S1Weak", s2_token="S2Weak", dem_token="DEMWeak".
+    """
 
     def __init__(self, split_csv, s1_dir, s2_dir, dem_dir, label_dir,
-                 crop_size=256, augment=False, normalize=True):
+                 crop_size=256, augment=False, normalize=True,
+                 s1_token="S1Hand", s2_token="S2Hand", dem_token="DEMHand"):
         self.s1_dir = Path(s1_dir); self.s2_dir = Path(s2_dir)
         self.dem_dir = Path(dem_dir); self.label_dir = Path(label_dir)
         self.crop_size = crop_size; self.augment = augment; self.normalize = normalize
+        self.s1_token = s1_token; self.s2_token = s2_token; self.dem_token = dem_token
         df = pd.read_csv(split_csv, header=None, names=["s1_file", "label_file"])
         self.samples = list(zip(df["s1_file"], df["label_file"]))
 
@@ -412,8 +421,8 @@ class Sen1Floods11TriModal(Dataset):
     def __getitem__(self, idx):
         s1_file, label_file = self.samples[idx]
         s1    = torch.from_numpy(self._read_s1(self.s1_dir / s1_file))
-        s2    = torch.from_numpy(self._read_s2(self.s2_dir / s1_file.replace("S1Hand", "S2Hand")))
-        dem   = torch.from_numpy(self._read_dem(self.dem_dir / s1_file.replace("S1Hand", "DEMHand")))
+        s2    = torch.from_numpy(self._read_s2(self.s2_dir / s1_file.replace(self.s1_token, self.s2_token)))
+        dem   = torch.from_numpy(self._read_dem(self.dem_dir / s1_file.replace(self.s1_token, self.dem_token)))
         label = torch.from_numpy(self._read_label(self.label_dir / label_file))
 
         if self.crop_size is not None:
@@ -460,4 +469,45 @@ def get_trimodal_dataloaders(data_root, splits_dir, batch_size=4,
                     shuffle=False, num_workers=num_workers, pin_memory=True),
         "test":  torch.utils.data.DataLoader(test_ds, batch_size=1,
                     shuffle=False, num_workers=num_workers, pin_memory=True),
+    }
+
+
+def get_trimodal_weak_dataloaders(
+    data_root, splits_dir,
+    batch_size=4, num_workers=4, crop_size=256,
+    s1_subdir="S1Weak", s2_subdir="S2Weak",
+    dem_subdir="DEMWeak", label_subdir="LabelWeak",
+    s1_token="S1Weak", s2_token="S2Weak", dem_token="DEMWeak",
+    train_csv="flood_train_data.csv",
+    val_csv="flood_valid_data.csv",
+):
+    """Train/val dataloaders for S1+S2+DEM over the WeaklyLabeled split.
+
+    Mirrors `get_trimodal_dataloaders` but takes subdir / token / CSV names
+    so it can address the weakly-labeled chip layout. No test split — the
+    final test eval always runs on HandLabeled test in the calling script.
+    """
+    data_root = Path(data_root); splits_dir = Path(splits_dir)
+    dirs = dict(
+        s1_dir=data_root / s1_subdir,
+        s2_dir=data_root / s2_subdir,
+        dem_dir=data_root / dem_subdir,
+        label_dir=data_root / label_subdir,
+    )
+    tokens = dict(s1_token=s1_token, s2_token=s2_token, dem_token=dem_token)
+    train_ds = Sen1Floods11TriModal(splits_dir / train_csv,
+                                    **dirs, crop_size=crop_size, augment=True,
+                                    **tokens)
+    val_ds   = Sen1Floods11TriModal(splits_dir / val_csv,
+                                    **dirs, crop_size=None, augment=False,
+                                    **tokens)
+    return {
+        "train": torch.utils.data.DataLoader(
+            train_ds, batch_size=batch_size, shuffle=True,
+            num_workers=num_workers, pin_memory=True, drop_last=True,
+        ),
+        "val": torch.utils.data.DataLoader(
+            val_ds, batch_size=1, shuffle=False,
+            num_workers=num_workers, pin_memory=True,
+        ),
     }
